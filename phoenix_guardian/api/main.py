@@ -119,6 +119,7 @@ _cors_origins = [
     "http://localhost:4000",  # Serve (fallback port)
     "http://localhost:5173",  # Vite dev server
     "https://phoenixguardian.netlify.app",  # Netlify production
+    "https://phoenixguardianv41.netlify.app",  # Netlify production (v4.1)
 ]
 # Allow custom CORS origin via env var
 _extra_origin = _os.getenv("CORS_ORIGIN")

@@ -17,6 +17,10 @@ services:
         generateValue: true
       - key: ENVIRONMENT
         value: production
+      - key: DEMO_MODE
+        value: "true"
+      - key: CORS_ORIGIN
+        value: "https://phoenixguardianv41.netlify.app"
       - key: GROQ_API_KEY
         sync: false  # Set manually in Render dashboard
     healthCheckPath: /api/v1/health
