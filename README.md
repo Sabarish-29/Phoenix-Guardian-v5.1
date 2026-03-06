@@ -973,7 +973,89 @@ This is a proof-of-concept project. For security concerns, open an issue on the 
 
 ---
 
-## 📜 License
+## � Enterprise SAP Integration
+
+Phoenix Guardian implements an **Enterprise Healthcare Integration Layer**
+that bridges AI agent outputs to SAP S/4HANA enterprise modules via
+OData-compatible REST APIs. The architecture mirrors SAP consulting
+implementation patterns for hospital ERP transformation projects.
+
+> Future enterprise deployments can leverage
+> **[Ktern.AI](https://ktern.com)** — Kaar Technologies' intelligent
+> SAP digital transformation platform — to automate ERP process mapping
+> and accelerate hospital S/4HANA migrations driven by Phoenix Guardian's
+> clinical AI intelligence.
+
+### Agent → SAP Module Mapping
+
+Each of the 35 Phoenix Guardian AI agents has a direct mapping to one or
+more SAP enterprise modules, enabling seamless clinical-to-ERP data flow:
+
+| Phoenix Guardian Agent / Component | SAP Module | Business Process Automated |
+|------------------------------------|------------|---------------------------|
+| `CodingAgent` (ICD-10 + CPT codes) | **SAP S/4HANA FICO** | Invoice generation, GL posting, insurance claims |
+| `OrdersAgent` (lab/imaging orders) | **SAP MM** | Purchase requisitions, vendor procurement |
+| `PharmacyAgent` (formulary, e-Rx) | **SAP MM + WM** | Inventory replenishment, warehouse management |
+| `FraudAgent` (billing anomalies) | **SAP GRC** | Compliance alerts, audit workflows, risk register |
+| `PopulationHealthAgent` (ML) | **SAP Analytics Cloud** | Hospital KPI dashboards, demand forecasting |
+| `ReadmissionAgent` (XGBoost 30-day) | **SAP SAC + CO** | Cost center resource planning, bed allocation |
+| `QualityAgent` (clinical metrics) | **SAP QM** | Quality inspection lots, non-conformance reports |
+| `RiskStratifier` (patient risk) | **SAP GRC Risk** | Enterprise risk registers, mitigation tracking |
+| `AgentOrchestrator` (4-phase parallel) | **SAP Integration Suite** | iFlow process chains, event-driven integration |
+| `TelehealthAgent` (session mgmt) | **SAP S/4HANA SD** | Service order management, billing |
+| Fiori UI5 Web Components shell | **SAP Fiori Launchpad** | App shell, role-based tile navigation |
+| OData-compatible FastAPI endpoints | **SAP OData Services** | S/4HANA service layer protocol |
+| BTP Role Collections (JWT + RBAC) | **SAP BTP XSUAA** | Identity, access management, OAuth2 scopes |
+| Integration Adapter Registry (ABC) | **SAP Integration Suite** | Pluggable adapter catalog (FHIR, HL7, REST) |
+| FHIR R4 Client (existing) | **SAP HCM / Integration Suite** | Healthcare connector, patient master sync |
+| Temporal.io SAGA workflows | **SAP Process Orchestration** | Long-running process coordination |
+| Docker + Kubernetes deployment | **SAP BTP Cloud Foundry** | Container runtime, microservice deployment |
+| GitHub Actions CI/CD pipeline | **SAP BTP Transport Mgmt** | Change transport, release management |
+| Post-Quantum Encryption (Kyber-1024) | **SAP BTP Security** | Data encryption, credential management |
+| HIPAA Audit Trail (7-year) | **SAP BTP Audit Log Service** | Compliance logging, access audit |
+
+### SAP Technology Standards Implemented
+
+| Standard / Technology | Implementation in Phoenix Guardian |
+|-----------------------|-----------------------------------|
+| **OData v4** (SAP API protocol) | FastAPI endpoints support `$top`, `$skip`, `$filter`, `$orderby`, `$expand` |
+| **SAP Fiori Design System** | UI5 Web Components via `@ui5/webcomponents-react` |
+| **SAP BTP XSUAA** | JWT role-claim structure aligned with XSUAA token format |
+| **SAP FHIR Connector** | Existing FHIR R4 client mirrors SAP Integration Suite healthcare adapter |
+| **SAP FI Document Types** | Billing module uses DR (customer invoice), KR (vendor invoice), SA (GL doc) |
+| **SAP MM Material Master** | Pharmacy/procurement modules use Plant, Storage Location, Material codes |
+| **SAP GRC Control Framework** | FraudAgent maps to SAP GRC control objectives and risk categories |
+| **SAP iFlow Pattern** | AgentOrchestrator 4-phase pipeline mirrors Integration Suite iFlow chaining |
+
+### Enterprise Healthcare Workflow (End-to-End)
+
+```
+Doctor completes encounter in Phoenix Guardian
+          ↓
+CodingAgent generates ICD-10 + CPT codes
+          ↓ POST /sap/billing (Phase 2)
+SAP FICO creates customer invoice (document type DR)
+          ↓
+OrdersAgent triggers medicine prescription
+          ↓ POST /sap/procurement (Phase 2)
+SAP MM creates Purchase Requisition (type NB)
+          ↓
+FraudAgent validates billing for anomalies
+          ↓ POST /sap/compliance-alert (Phase 2)
+SAP GRC raises compliance issue if anomaly detected
+          ↓
+PopulationHealthAgent updates hospital KPIs
+          ↓ (Phase 2)
+SAP Analytics Cloud refreshes KPI dashboard
+```
+
+> **Implementation Status:** Fiori UI shell and OData-compatible APIs are
+> live (Phase 1). The full `SAPIntegrationService` that wires agents to
+> SAP modules via OData POST calls is implemented in Phase 2.
+
+---
+
+## �📜 License
 
 **Proprietary** — Demo/Educational Use Only
 

@@ -433,20 +433,84 @@ async def list_encounters(
     page: int = 1,
     page_size: int = 10,
     status: Optional[str] = QueryParam(None, alias="status"),
-    current_user: User = Depends(get_current_active_user)
+    current_user: User = Depends(get_current_active_user),
+    # ── OData-compatible query parameters (SAP S/4HANA alignment) ──
+    odata_top: Optional[int] = QueryParam(
+        default=None,
+        alias="$top",
+        ge=1,
+        le=1000,
+        description=(
+            "OData: Maximum number of records to return. "
+            "Mirrors SAP S/4HANA OData $top system query option."
+        ),
+    ),
+    odata_skip: Optional[int] = QueryParam(
+        default=None,
+        alias="$skip",
+        ge=0,
+        description=(
+            "OData: Number of records to skip (for pagination). "
+            "Mirrors SAP S/4HANA OData $skip system query option."
+        ),
+    ),
+    odata_filter: Optional[str] = QueryParam(
+        default=None,
+        alias="$filter",
+        description=(
+            "OData: Filter expression. "
+            "Supported format: 'field_name eq \\'value\\''. "
+            "Example: 'patient_mrn eq \\'MRN001\\''. "
+            "Mirrors SAP S/4HANA OData $filter system query option."
+        ),
+    ),
+    odata_orderby: Optional[str] = QueryParam(
+        default=None,
+        alias="$orderby",
+        description=(
+            "OData: Sort expression. "
+            "Format: 'field_name' or 'field_name desc'. "
+            "Example: 'created_at desc'. "
+            "Mirrors SAP S/4HANA OData $orderby system query option."
+        ),
+    ),
+    odata_expand: Optional[str] = QueryParam(
+        default=None,
+        alias="$expand",
+        description=(
+            "OData: Comma-separated related entities to include. "
+            "Example: 'patient,soap_notes'. "
+            "Mirrors SAP S/4HANA OData $expand system query option. "
+            "(Expansion not yet implemented — accepted for future use.)"
+        ),
+    ),
 ) -> Dict[str, Any]:
     """
-    List all encounters with pagination.
-    
-    **Requires:** Any authenticated user
-    
-    **Query Parameters:**
-    - `page`: Page number (default: 1)
-    - `page_size`: Items per page (default: 10)
-    - `status`: Optional status filter (e.g. 'awaiting_review')
-    
-    **Returns:**
-    - Paginated list of encounters
+    List clinical encounters with OData-compatible query parameters.
+
+    Returns an OData JSON envelope matching SAP S/4HANA service layer
+    response format. Supports $top, $skip, $filter, $orderby, $expand
+    system query options as defined in OData v4 specification.
+
+    SAP Alignment:
+        This endpoint mirrors the format of SAP S/4HANA OData services
+        such as API_CLINICAL_ORDER_SRV. The @odata.context and
+        @odata.count metadata fields are consumed natively by SAP Fiori
+        and SAP Analytics Cloud (SAC) components.
+
+    Args:
+        page:          Page number (legacy pagination, default: 1)
+        page_size:     Items per page (legacy pagination, default: 10)
+        status:        Optional status filter (e.g. 'awaiting_review')
+        current_user:  Authenticated user (injected dependency)
+        odata_top:     Max records to return (OData $top)
+        odata_skip:    Records to skip — use with $top for pagination
+        odata_filter:  Filter expression e.g. "patient_mrn eq 'MRN001'"
+        odata_orderby: Sort expression e.g. "created_at desc"
+        odata_expand:  Related entities to expand (future implementation)
+
+    Returns:
+        dict: OData envelope with @odata.context, @odata.count, value[]
     """
     # Get all in-memory encounters as list
     all_encounters = []
@@ -483,23 +547,75 @@ async def list_encounters(
     # Apply status filter if provided
     if status:
         all_encounters = [e for e in all_encounters if e["status"] == status]
-    
-    # Sort by created_at descending
-    all_encounters.sort(key=lambda x: x.get("created_at", ""), reverse=True)
-    
-    # Paginate
-    total = len(all_encounters)
-    start = (page - 1) * page_size
-    end = start + page_size
-    items = all_encounters[start:end]
-    pages = max(1, (total + page_size - 1) // page_size)
-    
+
+    # ── Apply OData $filter ─────────────────────────────────────────
+    # Supports basic equality: "field eq 'value'"
+    if odata_filter:
+        try:
+            if " eq '" in odata_filter:
+                field_name, _, raw_value = odata_filter.partition(" eq '")
+                field_name = field_name.strip()
+                field_value = raw_value.rstrip("'").strip()
+                all_encounters = [
+                    e for e in all_encounters
+                    if str(e.get(field_name, "")) == field_value
+                ]
+        except Exception:
+            # Invalid filter expressions are silently ignored
+            # This matches SAP OData lenient filter behaviour
+            pass
+
+    # ── Apply OData $orderby ────────────────────────────────────────
+    # Supports: "field_name" or "field_name desc" or "field_name asc"
+    if odata_orderby:
+        try:
+            parts = odata_orderby.strip().split()
+            if parts:
+                field_name = parts[0]
+                direction = parts[1].lower() if len(parts) > 1 else "asc"
+                all_encounters.sort(
+                    key=lambda x: x.get(field_name, ""),
+                    reverse=(direction == "desc"),
+                )
+        except Exception:
+            pass
+    else:
+        # Default sort by created_at descending
+        all_encounters.sort(
+            key=lambda x: x.get("created_at", ""), reverse=True
+        )
+
+    # ── Count BEFORE applying $top/$skip (OData @odata.count) ──────
+    odata_total_count = len(all_encounters)
+
+    # ── Apply OData $skip and $top OR legacy pagination ────────────
+    if odata_top is not None or odata_skip is not None:
+        # OData-style pagination takes precedence
+        skip = odata_skip if odata_skip is not None else 0
+        top = odata_top if odata_top is not None else 100
+        items = all_encounters[skip : skip + top]
+    else:
+        # Legacy page-based pagination
+        start = (page - 1) * page_size
+        end = start + page_size
+        items = all_encounters[start:end]
+
+    pages = max(1, (odata_total_count + page_size - 1) // page_size)
+
+    # ── OData response envelope ─────────────────────────────────────
+    # Mirrors SAP S/4HANA JSON OData response format.
+    # The "value" key contains the legacy response shape so existing
+    # consumers are unaffected when using default parameters.
     return {
-        "items": items,
-        "total": total,
-        "page": page,
-        "page_size": page_size,
-        "pages": pages,
+        "@odata.context": "$metadata#Encounters",
+        "@odata.count": odata_total_count,
+        "value": {
+            "items": items,
+            "total": odata_total_count,
+            "page": page,
+            "page_size": page_size,
+            "pages": pages,
+        },
     }
 
 

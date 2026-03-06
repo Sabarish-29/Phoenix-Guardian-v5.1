@@ -36,6 +36,7 @@ import {
   ZebraHunterPage,
   V5DashboardPage,
 } from './pages';
+import LaunchpadPage from './pages/LaunchpadPage';
 
 // Store
 import { useAuthStore } from './stores/authStore';
@@ -97,7 +98,7 @@ const RootRedirect: React.FC = () => {
   const { user, isAuthenticated } = useAuthStore();
   if (!isAuthenticated) return <Navigate to="/login" replace />;
   if (user?.role === 'admin') return <Navigate to="/admin" replace />;
-  return <Navigate to="/v5-dashboard" replace />;
+  return <Navigate to="/launchpad" replace />;
 };
 
 /**
@@ -121,6 +122,9 @@ const App: React.FC = () => {
                 </ProtectedRoute>
               }
             >
+              {/* SAP Fiori Launchpad — home screen */}
+              <Route path="/launchpad" element={<LaunchpadPage />} />
+
               {/* V5 Dashboard - unified agent overview */}
               <Route path="/v5-dashboard" element={<V5DashboardPage />} />
               

@@ -1,10 +1,12 @@
 /**
  * Main layout component with header and content area.
+ * Wrapped in SAP Fiori AppShell for S/4HANA-aligned navigation.
  */
 
 import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { Header } from './Header';
+import AppShell from './AppShell';
 
 interface LayoutProps {
   children?: React.ReactNode;
@@ -12,6 +14,7 @@ interface LayoutProps {
 
 export const Layout: React.FC<LayoutProps> = ({ children }) => {
   return (
+    <AppShell>
     <div style={{ minHeight: '100vh', background: 'var(--bg-deep)' }}>
       <Header />
       <main style={{ maxWidth: '1280px', margin: '0 auto', padding: '32px 16px', paddingBottom: 60 }}>
@@ -60,6 +63,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         ))}
       </div>
     </div>
+    </AppShell>
   );
 };
 

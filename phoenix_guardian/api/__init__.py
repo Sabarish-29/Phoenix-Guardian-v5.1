@@ -9,6 +9,4 @@ This package provides:
 - HIPAA-compliant logging
 """
 
-from phoenix_guardian.api.main import app
-
-__all__ = ["app"]
+__all__ = ["main"]

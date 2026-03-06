@@ -5,9 +5,10 @@ Includes honeytoken detection for security monitoring.
 """
 
 import logging
+import os
 from typing import Any, Dict, List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from phoenix_guardian.api.dependencies import get_navigator
@@ -110,6 +111,151 @@ def log_honeytoken_access(
         f"🚨 SECURITY ALERT: Honeytoken accessed! "
         f"MRN={mrn}, User={user_email or user_id}, IP={ip_address}, Action={action}"
     )
+
+
+@router.get("")
+async def list_patients(
+    request: Request,
+    db: Session = Depends(get_db),
+    # ── OData-compatible query parameters (SAP S/4HANA alignment) ──
+    odata_top: Optional[int] = Query(
+        default=100,
+        alias="$top",
+        ge=1,
+        le=1000,
+        description=(
+            "OData: Maximum number of records to return. "
+            "Mirrors SAP S/4HANA OData $top system query option."
+        ),
+    ),
+    odata_skip: Optional[int] = Query(
+        default=0,
+        alias="$skip",
+        ge=0,
+        description=(
+            "OData: Number of records to skip (for pagination). "
+            "Mirrors SAP S/4HANA OData $skip system query option."
+        ),
+    ),
+    odata_filter: Optional[str] = Query(
+        default=None,
+        alias="$filter",
+        description=(
+            "OData: Filter expression. "
+            "Supported format: 'field_name eq \\'value\\''. "
+            "Example: 'mrn eq \\'MRN001\\''. "
+            "Mirrors SAP S/4HANA OData $filter system query option."
+        ),
+    ),
+    odata_orderby: Optional[str] = Query(
+        default=None,
+        alias="$orderby",
+        description=(
+            "OData: Sort expression. "
+            "Format: 'field_name' or 'field_name desc'. "
+            "Example: 'name desc'. "
+            "Mirrors SAP S/4HANA OData $orderby system query option."
+        ),
+    ),
+    odata_expand: Optional[str] = Query(
+        default=None,
+        alias="$expand",
+        description=(
+            "OData: Comma-separated related entities to include. "
+            "Example: 'encounters,medications'. "
+            "Mirrors SAP S/4HANA OData $expand system query option. "
+            "(Expansion not yet implemented — accepted for future use.)"
+        ),
+    ),
+) -> Dict[str, Any]:
+    """
+    List patients with OData-compatible query parameters.
+
+    Returns an OData JSON envelope matching SAP S/4HANA service layer
+    response format. Supports $top, $skip, $filter, $orderby, $expand
+    system query options as defined in OData v4 specification.
+
+    In demo mode, returns realistic mock patient data. In production,
+    this endpoint would query the patient master data table.
+
+    SAP Alignment:
+        This endpoint mirrors the format of SAP S/4HANA OData services
+        such as API_BUSINESS_PARTNER. The @odata.context and
+        @odata.count metadata fields are consumed natively by SAP Fiori
+        and SAP Analytics Cloud (SAC) components.
+
+    Args:
+        request:       FastAPI request object
+        db:            Database session
+        odata_top:     Max records to return (OData $top)
+        odata_skip:    Records to skip — use with $top for pagination
+        odata_filter:  Filter expression e.g. "mrn eq 'MRN001'"
+        odata_orderby: Sort expression e.g. "name desc"
+        odata_expand:  Related entities to expand (future implementation)
+
+    Returns:
+        dict: OData envelope with @odata.context, @odata.count, value[]
+    """
+    # Demo mode: return mock patient records
+    demo_mode = os.getenv("DEMO_MODE", "false").lower() == "true"
+
+    demo_patients: List[Dict[str, Any]] = [
+        {"mrn": "MRN001", "name": "John Smith", "dob": "1965-03-15",
+         "gender": "M", "status": "active"},
+        {"mrn": "MRN002", "name": "Jane Doe", "dob": "1978-07-22",
+         "gender": "F", "status": "active"},
+        {"mrn": "MRN003", "name": "Robert Johnson", "dob": "1950-11-08",
+         "gender": "M", "status": "active"},
+        {"mrn": "MRN004", "name": "Maria Garcia", "dob": "1982-01-30",
+         "gender": "F", "status": "active"},
+        {"mrn": "MRN005", "name": "David Wilson", "dob": "1971-09-12",
+         "gender": "M", "status": "inactive"},
+    ]
+
+    patients = demo_patients
+
+    # ── Apply OData $filter ─────────────────────────────────────────
+    if odata_filter:
+        try:
+            if " eq '" in odata_filter:
+                field_name, _, raw_value = odata_filter.partition(" eq '")
+                field_name = field_name.strip()
+                field_value = raw_value.rstrip("'").strip()
+                patients = [
+                    p for p in patients
+                    if str(p.get(field_name, "")) == field_value
+                ]
+        except Exception:
+            pass
+
+    # ── Apply OData $orderby ────────────────────────────────────────
+    if odata_orderby:
+        try:
+            parts = odata_orderby.strip().split()
+            if parts:
+                field_name = parts[0]
+                direction = parts[1].lower() if len(parts) > 1 else "asc"
+                patients.sort(
+                    key=lambda x: x.get(field_name, ""),
+                    reverse=(direction == "desc"),
+                )
+        except Exception:
+            pass
+
+    # ── Count BEFORE applying $top/$skip (OData @odata.count) ──────
+    odata_total_count = len(patients)
+
+    # ── Apply OData $skip and $top ─────────────────────────────────
+    skip = odata_skip if odata_skip is not None else 0
+    top = odata_top if odata_top is not None else 100
+    patients = patients[skip : skip + top]
+
+    # ── OData response envelope ─────────────────────────────────────
+    return {
+        "@odata.context": "$metadata#Patients",
+        "@odata.count": odata_total_count,
+        "value": patients,
+    }
 
 
 @router.get("/{mrn}")

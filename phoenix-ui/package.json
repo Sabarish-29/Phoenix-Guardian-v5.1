@@ -6,6 +6,10 @@
   "dependencies": {
     "@tanstack/react-query": "^5.17.0",
     "@tanstack/react-query-devtools": "^5.91.3",
+    "@ui5/webcomponents": "^1.24.26",
+    "@ui5/webcomponents-fiori": "^1.24.26",
+    "@ui5/webcomponents-icons": "^1.24.26",
+    "@ui5/webcomponents-react": "^1.29.20",
     "ajv": "^8.17.1",
     "axios": "^1.6.5",
     "react": "^18.2.0",
