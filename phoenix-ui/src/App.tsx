@@ -37,6 +37,7 @@ import {
   V5DashboardPage,
 } from './pages';
 import LaunchpadPage from './pages/LaunchpadPage';
+import ERPDashboardPage from './pages/ERPDashboardPage';
 
 // Store
 import { useAuthStore } from './stores/authStore';
@@ -124,6 +125,9 @@ const App: React.FC = () => {
             >
               {/* SAP Fiori Launchpad — home screen */}
               <Route path="/launchpad" element={<LaunchpadPage />} />
+
+              {/* SAP ERP Integration Dashboard */}
+              <Route path="/erp-dashboard" element={<ERPDashboardPage />} />
 
               {/* V5 Dashboard - unified agent overview */}
               <Route path="/v5-dashboard" element={<V5DashboardPage />} />

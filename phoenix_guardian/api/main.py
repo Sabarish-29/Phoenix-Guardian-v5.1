@@ -32,6 +32,7 @@ from phoenix_guardian.api.routes import silent_voice as silent_voice_routes
 from phoenix_guardian.api.routes import zebra_hunter as zebra_hunter_routes
 from phoenix_guardian.api.routes import v5_dashboard as v5_dashboard_routes
 from phoenix_guardian.api.routes import correlations as correlations_routes
+from phoenix_guardian.api.routes import sap as sap_routes
 from phoenix_guardian.api.utils.orchestrator import OrchestrationError
 from phoenix_guardian.database.connection import db
 
@@ -302,6 +303,11 @@ app.include_router(
     correlations_routes.router,
     prefix="/api/v1",
     tags=["cross-agent-correlations"],
+)
+
+app.include_router(
+    sap_routes.router,
+    prefix="/api/v1",
 )
 
 

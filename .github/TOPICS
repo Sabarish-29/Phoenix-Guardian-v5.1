@@ -1,0 +1,37 @@
+# Phoenix Guardian — GitHub Repository Topics
+# ─────────────────────────────────────────────────────────────────
+# SET THESE ON GITHUB — they do not apply automatically from this file.
+#
+# Instructions:
+#   1. Go to your repository on github.com
+#   2. Click the ⚙️ gear icon next to "About" (top-right of the repo page)
+#   3. In the "Topics" field, type each topic below and press Space/Enter
+#   4. Click "Save changes"
+#
+# After setting topics, your repo appears in SAP-specific searches:
+#   github.com/topics/sap-integration
+#   github.com/topics/s4hana
+#   github.com/topics/sap-fiori
+# SAP topics in student repos are extremely rare — strong differentiator.
+# ─────────────────────────────────────────────────────────────────
+
+sap-integration
+s4hana
+sap-fiori
+sap-btp
+odata
+sap-fico
+sap-mm
+sap-grc
+sap-analytics-cloud
+fiori-ui5
+healthcare-erp
+healthcare-ai
+fhir-r4
+hipaa-compliant
+fastapi
+react
+python
+enterprise-integration
+llm-agents
+clinical-ai

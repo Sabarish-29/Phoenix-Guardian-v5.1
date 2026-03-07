@@ -1,0 +1,148 @@
+{
+  "info": {
+    "_postman_id": "phoenix-guardian-sap-v5-2025",
+    "name": "Phoenix Guardian — SAP Integration API",
+    "description": "SAP integration API collection for Phoenix Guardian v5.\n\nAll SAP endpoints return OData JSON envelopes:\n  @odata.context — entity metadata URL\n  value          — response payload\n\nDocument number formats:\n  FICO: FI-5100XXXXX\n  MM:   PR-0010XXXXX\n  GRC:  GRC-ISSUE-XXXXX\n  SAC:  SAC-KPI-XXXXX\n\nImport this file into Postman, set the jwt_token variable, and run.\n\nProject: phoenix-guardian-v4\nDocs: docs/SAP_INTEGRATION.md\nArchitecture: docs/ARCHITECTURE.md",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key": "base_url",     "value": "http://localhost:8000", "description": "Backend URL. Change for deployed environment."},
+    {"key": "api_prefix",   "value": "/api/v1"},
+    {"key": "jwt_token",    "value": "your-jwt-token-here",  "description": "From POST /auth/login. Replace with real token."},
+    {"key": "patient_id",   "value": "PAT-00123"},
+    {"key": "encounter_id", "value": "ENC-00456"}
+  ],
+  "item": [
+    {
+      "name": "01 — Authentication",
+      "item": [
+        {
+          "name": "POST Login — Get JWT Token",
+          "request": {
+            "method": "POST",
+            "header": [{"key": "Content-Type", "value": "application/json"}],
+            "url": "{{base_url}}{{api_prefix}}/auth/login",
+            "body": {"mode": "raw", "raw": "{\n  \"email\": \"physician@hospital.com\",\n  \"password\": \"your-password\"\n}"},
+            "description": "Authenticate and receive JWT Bearer token.\nCopy the token value and set it as the jwt_token collection variable."
+          }
+        }
+      ]
+    },
+    {
+      "name": "02 — SAP Integration",
+      "description": "5 SAP endpoints. All responses use OData JSON envelope format.\nDocument numbers: FI-5100XXXXX | PR-0010XXXXX | GRC-ISSUE-XXXXX | SAC-KPI-XXXXX",
+      "item": [
+        {
+          "name": "GET SAP Module Status (no auth)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}{{api_prefix}}/sap/status",
+            "description": "Health and document activity for all 4 SAP modules.\nNo authentication required — health check endpoint.\n\nReturns OData collection:\n  @odata.context: $metadata#SAPStatusCollection\n  @odata.count: 4\n  value: [{FICO}, {MM}, {GRC}, {SAC}]\n\nEach entry: module, status (CONNECTED/DEMO/ERROR), docCountToday, lastDocNumber, endpointUrl"
+          }
+        },
+        {
+          "name": "POST Billing → SAP FICO",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type",  "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+            ],
+            "url": "{{base_url}}{{api_prefix}}/sap/billing",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patient_id\":    \"{{patient_id}}\",\n  \"encounter_id\":  \"{{encounter_id}}\",\n  \"icd10_codes\":   [\"J18.9\", \"Z87.891\"],\n  \"cpt_codes\":     [\"99213\", \"71046\"],\n  \"currency_code\": \"INR\",\n  \"company_code\":  \"HOSP\"\n}"
+            },
+            "description": "CodingAgent output → SAP S/4HANA FICO customer invoice.\n\nCreates SAP FI document type DR (Debitor Rechnung).\nRequired roles: PHYSICIAN, ADMIN\n\nSAP OData service: API_BILLING_DOCUMENT_SRV\nSAP path: /sap/opu/odata/sap/API_BILLING_DOCUMENT_SRV/A_BillingDocument\n\nExpected response:\n  DocumentNumber: FI-5100XXXXX\n  SAPModule: FICO\n  Status: SUCCESS"
+          }
+        },
+        {
+          "name": "POST Procurement → SAP MM",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type",  "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+            ],
+            "url": "{{base_url}}{{api_prefix}}/sap/procurement",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patient_id\":    \"{{patient_id}}\",\n  \"encounter_id\":  \"{{encounter_id}}\",\n  \"medications\": [\n    {\"name\": \"Amoxicillin 500mg\",  \"quantity\": 21, \"unit\": \"TAB\"},\n    {\"name\": \"Azithromycin 250mg\", \"quantity\": 6,  \"unit\": \"TAB\"}\n  ],\n  \"lab_orders\": [\n    {\"test_name\": \"Complete Blood Count\", \"priority\": \"STAT\"},\n    {\"test_name\": \"Chest X-Ray\",          \"priority\": \"ROUTINE\"}\n  ]\n}"
+            },
+            "description": "OrdersAgent + PharmacyAgent → SAP MM Purchase Requisition.\n\nCreates PR type NB (Normal Bestellung) — one line item per medication and lab test.\nRequired roles: PHYSICIAN, NURSE, ADMIN\n\nSAP OData service: API_PURCHASEREQ_PROCESS_SRV\nLine items: medications → Plant HOSP, SL01, GL 510000 | lab → SL02, GL 520000\n\nExpected response:\n  DocumentNumber: PR-0010XXXXX\n  SAPModule: MM"
+          }
+        },
+        {
+          "name": "POST Compliance Alert → SAP GRC",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type",  "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+            ],
+            "url": "{{base_url}}{{api_prefix}}/sap/compliance-alert",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patient_id\":    \"{{patient_id}}\",\n  \"encounter_id\":  \"{{encounter_id}}\",\n  \"risk_level\":    \"HIGH\",\n  \"findings\":      \"NCCI unbundling detected in CPT codes 99213 and 99214\",\n  \"fraud_types\":   [\"NCCI_UNBUNDLING\", \"UPCODING\"],\n  \"amount\":        45000.00\n}"
+            },
+            "description": "FraudAgent → SAP GRC compliance issue.\n\nSeverity mapping: CRITICAL=1 | HIGH=2 | MEDIUM=3 | LOW=4 | INFO=5\nControl Objective: CO_BILLING_ACCURACY\nRequired roles: ADMIN only\n\nSAP OData service: GRC_PI_RISKMANAGEMENT_SRV\n\nExpected response:\n  DocumentNumber: GRC-ISSUE-XXXXX\n  SAPModule: GRC"
+          }
+        },
+        {
+          "name": "POST Analytics → SAP SAC",
+          "request": {
+            "method": "POST",
+            "header": [
+              {"key": "Content-Type",  "value": "application/json"},
+              {"key": "Authorization", "value": "Bearer {{jwt_token}}"}
+            ],
+            "url": "{{base_url}}{{api_prefix}}/sap/analytics",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"patient_count_30d\":  142,\n  \"readmission_rate\":   0.069,\n  \"icu_occupancy_pct\":  74.5,\n  \"avg_los_days\":       3.8,\n  \"high_risk_count\":    7\n}"
+            },
+            "description": "PopulationHealthAgent + ReadmissionAgent → SAP Analytics Cloud.\n\nUpdates PHOENIX_HOSPITAL_KPI dataset — triggers live SAC dashboard refresh.\nRequired roles: ADMIN, PHYSICIAN\nKPIs pushed: 9 metrics (patient ops + SAP ERP document counters)\n\nExpected response:\n  DocumentNumber: SAC-KPI-XXXXX\n  SAPModule: SAC"
+          }
+        }
+      ]
+    },
+    {
+      "name": "03 — OData Clinical APIs",
+      "description": "OData-compatible endpoints supporting $top $skip $filter $orderby $expand.\nResponses use SAP OData envelope: @odata.context + @odata.count + value[]",
+      "item": [
+        {
+          "name": "GET Encounters — OData",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}"}],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/encounters?$top=10&$skip=0&$orderby=created_at desc",
+              "query": [
+                {"key": "$top",     "value": "10"},
+                {"key": "$skip",    "value": "0"},
+                {"key": "$orderby", "value": "created_at desc"}
+              ]
+            },
+            "description": "OData-compatible clinical encounters list.\n\nReturns:\n  @odata.context: $metadata#Encounters\n  @odata.count: N\n  value: [{encounter objects}]"
+          }
+        },
+        {
+          "name": "GET Patients — OData",
+          "request": {
+            "method": "GET",
+            "header": [{"key": "Authorization", "value": "Bearer {{jwt_token}}"}],
+            "url": {
+              "raw": "{{base_url}}{{api_prefix}}/patients?$top=5&$orderby=created_at desc",
+              "query": [
+                {"key": "$top",     "value": "5"},
+                {"key": "$orderby", "value": "created_at desc"}
+              ]
+            },
+            "description": "OData-compatible patients list.\n\nReturns:\n  @odata.context: $metadata#Patients\n  @odata.count: N\n  value: [{patient objects}]"
+          }
+        }
+      ]
+    }
+  ]
+}

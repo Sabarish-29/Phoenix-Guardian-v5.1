@@ -26,11 +26,7 @@
  */
 
 import { useNavigate } from 'react-router-dom';
-import {
-  GenericTile,
-  TileContent,
-  NumericContent,
-} from '@ui5/webcomponents-react';
+import { Card, CardHeader } from '@ui5/webcomponents-react';
 
 // Named export from authStore (Zustand store)
 import { useAuthStore } from '../stores/authStore';
@@ -414,21 +410,37 @@ export default function LaunchpadPage() {
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                <GenericTile
-                  headerText={tile.headerText}
-                  subheaderText={tile.subheaderText}
-                  tileSize="S"
-                  style={{ width: '156px', minHeight: '88px' }}
-                >
-                  <TileContent>
-                    <NumericContent
-                      value={tile.value}
-                      unitOfMeasurement={tile.unit}
-                      valueColor={tile.valueColor}
-                      withMargin
+                <Card
+                  style={{ width: '170px', minHeight: '100px' }}
+                  header={
+                    <CardHeader
+                      titleText={tile.headerText}
+                      subtitleText={tile.subheaderText}
                     />
-                  </TileContent>
-                </GenericTile>
+                  }
+                >
+                  <div style={{
+                    padding: '0.5rem 1rem 0.75rem',
+                    fontFamily: '"72", Arial, sans-serif',
+                  }}>
+                    <span style={{
+                      fontSize: '1.5rem',
+                      fontWeight: 700,
+                      color: tile.valueColor === 'Good' ? '#107e3e'
+                           : tile.valueColor === 'Critical' ? '#bb0000'
+                           : '#6a6d70',
+                    }}>
+                      {tile.value}
+                    </span>
+                    <span style={{
+                      fontSize: '0.7rem',
+                      color: '#6a6d70',
+                      marginLeft: '0.35rem',
+                    }}>
+                      {tile.unit}
+                    </span>
+                  </div>
+                </Card>
               </div>
             ))}
           </div>

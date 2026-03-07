@@ -13,8 +13,14 @@
 [![AI Agents](https://img.shields.io/badge/AI%20Agents-35-FF6F00?logo=openai&logoColor=white)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red)]()
 [![CI](https://img.shields.io/github/actions/workflow/status/Sabarish-29/phoenix-guardian-v4/test.yml?branch=main&label=CI&logo=github)](https://github.com/Sabarish-29/phoenix-guardian-v4/actions)
+![SAP Fiori](https://img.shields.io/badge/SAP%20Fiori-UI5%20Web%20Components-0070d2?style=flat&logo=sap)
+![OData v4](https://img.shields.io/badge/OData-v4%20Compatible-107e3e?style=flat&logo=sap)
+![SAP BTP](https://img.shields.io/badge/SAP%20BTP-XSUAA%20Aligned-e9730c?style=flat&logo=sap)
+![SAP S/4HANA](https://img.shields.io/badge/SAP%20S%2F4HANA-Integration%20Ready-bb0000?style=flat&logo=sap)
 
 Phoenix Guardian is a full-stack healthcare platform that combines AI agents, ML models, and post-quantum encryption to assist physicians with clinical documentation, decision support, and security monitoring — all built with HIPAA compliance in mind.
+
+> **SAP Integration:** Fiori UI5 shell · OData-compatible APIs · S/4HANA FICO/MM/GRC/SAC wiring · BTP XSUAA-aligned RBAC · Integration Adapter Registry (Epic FHIR R4, Cerner, Meditech, athenahealth) · [Ktern.AI](https://ktern.com) compatible
 
 > **⚠️ Not production-ready.** Proof-of-concept built by a college team. ML models trained on synthetic data only. No clinical validation performed.
 
@@ -566,6 +572,107 @@ make clean      # Remove generated files
 
 ---
 
+## ⚡ SAP Integration Quick Start
+
+> After running `uvicorn phoenix_guardian.api.main:app --reload` (port 8000):
+
+**1 — Check all 4 SAP module connections (no auth required)**
+```bash
+curl -s http://localhost:8000/api/v1/sap/status | python3 -m json.tool
+```
+Expected: `{"@odata.context": "$metadata#SAPStatusCollection", "@odata.count": 4, "value": [{...FICO...}, {...MM...}, {...GRC...}, {...SAC...}]}`
+
+**2 — Post ICD-10/CPT codes to SAP FICO (CodingAgent output)**
+```bash
+curl -s -X POST http://localhost:8000/api/v1/sap/billing \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your-jwt>" \
+  -d '{
+    "patient_id": "PAT-00123",
+    "encounter_id": "ENC-00456",
+    "icd10_codes": ["J18.9", "Z87.891"],
+    "cpt_codes": ["99213", "71046"],
+    "currency_code": "INR"
+  }' | python3 -m json.tool
+```
+Expected: `{"value": {"DocumentNumber": "FI-5100XXXXX", "SAPModule": "FICO", "Status": "SUCCESS", "DemoMode": true}}`
+
+**3 — Create SAP MM Purchase Requisition (OrdersAgent + PharmacyAgent output)**
+```bash
+curl -s -X POST http://localhost:8000/api/v1/sap/procurement \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your-jwt>" \
+  -d '{
+    "patient_id": "PAT-00123",
+    "encounter_id": "ENC-00456",
+    "medications": [{"name": "Amoxicillin 500mg", "quantity": 21, "unit": "TAB"}],
+    "lab_orders":  [{"test_name": "Complete Blood Count", "priority": "STAT"}]
+  }' | python3 -m json.tool
+```
+Expected: `{"value": {"DocumentNumber": "PR-0010XXXXX", "SAPModule": "MM"}}`
+
+**4 — Raise SAP GRC compliance alert (FraudAgent output)**
+```bash
+curl -s -X POST http://localhost:8000/api/v1/sap/compliance-alert \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your-jwt>" \
+  -d '{
+    "patient_id": "PAT-00123",
+    "encounter_id": "ENC-00456",
+    "risk_level": "HIGH",
+    "findings": "NCCI unbundling detected in CPT codes 99213 and 99214",
+    "fraud_types": ["NCCI_UNBUNDLING", "UPCODING"],
+    "amount": 45000.00
+  }' | python3 -m json.tool
+```
+Expected: `{"value": {"DocumentNumber": "GRC-ISSUE-XXXXX", "SAPModule": "GRC"}}`
+
+**5 — Push hospital KPIs to SAP Analytics Cloud**
+```bash
+curl -s -X POST http://localhost:8000/api/v1/sap/analytics \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer <your-jwt>" \
+  -d '{
+    "patient_count_30d": 142,
+    "readmission_rate": 0.069,
+    "icu_occupancy_pct": 74.5,
+    "avg_los_days": 3.8,
+    "high_risk_count": 7
+  }' | python3 -m json.tool
+```
+Expected: `{"value": {"DocumentNumber": "SAC-KPI-XXXXX", "SAPModule": "SAC"}}`
+
+**6 — Test adapter registry polymorphism (Python, no server needed)**
+```python
+import asyncio
+from phoenix_guardian.integrations.adapter_registry import adapter_registry, AdapterMessage
+
+async def demo():
+    msg = AdapterMessage(
+        payload={"resourceType": "Patient", "id": "PAT-00123"},
+        message_id="MSG-001"
+    )
+    # Same call — 3 different EHR systems. Runtime polymorphism.
+    for adapter_id in ["epic_fhir", "cerner_fhir", "hl7_meditech"]:
+        resp = await adapter_registry.get(adapter_id).send_message(msg)
+        print(f"{adapter_id:20} → corr_id: {resp.correlation_id}")
+
+asyncio.run(demo())
+```
+
+**7 — OData query on /encounters (SAP-compatible params)**
+```bash
+curl -s "http://localhost:8000/api/v1/encounters?\$top=5&\$orderby=created_at%20desc" \
+  -H "Authorization: Bearer <your-jwt>" | python3 -m json.tool
+```
+Expected: `{"@odata.context": "$metadata#Encounters", "@odata.count": N, "value": [...]}`
+
+> **Swagger UI:** [http://localhost:8000/api/docs](http://localhost:8000/api/docs)
+> → **SAP Integration** tag shows all 5 endpoints with request/response examples.
+> **Postman:** Import `docs/postman/phoenix-guardian-sap-integration.json` (one click).
+
+---
+
 ## 📖 Usage
 
 ### Creating an Encounter
@@ -974,6 +1081,32 @@ This is a proof-of-concept project. For security concerns, open an issue on the 
 ---
 
 ## � Enterprise SAP Integration
+
+### Integration Status — All Systems Operational
+
+| Component | Status | Details |
+|-----------|--------|---------|
+| **SAP Fiori UI Shell** | ✅ Live | `@ui5/webcomponents-react` ShellBar + Launchpad at `/launchpad` |
+| **OData API (`/encounters`)** | ✅ Live | `$top` `$skip` `$filter` `$orderby` `$expand` · OData envelope |
+| **OData API (`/patients`)** | ✅ Live | Same OData params · `@odata.context: $metadata#Patients` |
+| **POST `/sap/billing`** | ✅ Live | CodingAgent → SAP FICO · Doc type DR · ICD-10 + CPT codes |
+| **POST `/sap/procurement`** | ✅ Live | OrdersAgent + PharmacyAgent → SAP MM · PR type NB |
+| **POST `/sap/compliance-alert`** | ✅ Live | FraudAgent → SAP GRC · Severity 1–5 · Control objective |
+| **POST `/sap/analytics`** | ✅ Live | PopulationHealthAgent → SAP Analytics Cloud · KPI dataset |
+| **GET `/sap/status`** | ✅ Live | All 4 module health · Daily doc counts · Endpoint URLs |
+| **ERP Dashboard** | ✅ Live | `/erp-dashboard` · 4 status cards · Recharts 7-day chart · Tx log |
+| **Epic FHIR R4 Adapter** | ✅ Demo | `adapter_registry.get("epic_fhir")` · FHIR R4 REST |
+| **Cerner FHIR R4 Adapter** | ✅ Demo | `adapter_registry.get("cerner_fhir")` · FHIR R4 REST |
+| **Meditech HL7 v2 Adapter** | ✅ Demo | `adapter_registry.get("hl7_meditech")` · HL7 v2 |
+| **athenahealth REST Adapter** | ✅ Demo | `adapter_registry.get("athenahealth")` · REST API |
+| **SAP BTP XSUAA RBAC** | ✅ Live | Role Collections · OAuth2 scopes · JWT aligned |
+| **Ktern.AI Compatibility** | 🔷 Planned | Clinical AI analytics → SAP transformation intelligence |
+
+> **Demo mode** (`SAP_DEMO_MODE=true` — default): Returns realistic mock responses
+> using real SAP document number formats: `FI-5100XXXXX` (FICO), `PR-0010XXXXX` (MM),
+> `GRC-ISSUE-XXXXX` (GRC), `SAC-KPI-XXXXX` (SAC).
+> Set `SAP_DEMO_MODE=false` and configure `SAP_API_BASE_URL` + BTP credentials in `.env`
+> to connect a live S/4HANA instance — zero code changes required.
 
 Phoenix Guardian implements an **Enterprise Healthcare Integration Layer**
 that bridges AI agent outputs to SAP S/4HANA enterprise modules via
