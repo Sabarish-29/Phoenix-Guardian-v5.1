@@ -113,17 +113,16 @@ async def post_analytics(
 @router.get(
     "/status",
     summary="SAP module connectivity status",
-    description="Returns connection status for all four SAP modules (FICO, MM, GRC, SAC).",
-    response_description="List of module statuses",
+    description="Returns connection status for all four SAP modules (FICO, MM, GRC, SAC). Public endpoint — no authentication required.",
+    response_description="OData V4 envelope with module statuses",
 )
-async def get_status(
-    current_user: User = Depends(get_current_active_user),
-) -> dict[str, Any]:
-    """Return health/connectivity status for each SAP module."""
-    logger.info("SAP status check  user=%s", current_user.email)
+async def get_status() -> dict[str, Any]:
+    """Return health/connectivity status for each SAP module (public)."""
+    logger.info("SAP status check (public)")
     statuses = await sap_service.get_module_status()
     return {
-        "modules": [
+        "@odata.context": "$metadata#SAPModuleStatus",
+        "value": [
             {
                 "module": s.module.value,
                 "status": s.status.value,

@@ -123,12 +123,6 @@ const App: React.FC = () => {
                 </ProtectedRoute>
               }
             >
-              {/* SAP Fiori Launchpad — home screen */}
-              <Route path="/launchpad" element={<LaunchpadPage />} />
-
-              {/* SAP ERP Integration Dashboard */}
-              <Route path="/erp-dashboard" element={<ERPDashboardPage />} />
-
               {/* V5 Dashboard - unified agent overview */}
               <Route path="/v5-dashboard" element={<V5DashboardPage />} />
               
@@ -191,18 +185,22 @@ const App: React.FC = () => {
             >
               {/* Admin home */}
               <Route path="/admin" element={<AdminHomePage />} />
-              
+
               {/* Security console */}
               <Route path="/admin/security" element={<AdminSecurityConsolePage />} />
-              
+
               {/* Reports */}
               <Route path="/admin/reports" element={<AdminReportsPage />} />
-              
+
               {/* User management */}
               <Route path="/admin/users" element={<AdminUsersPage />} />
-              
+
               {/* Audit logs */}
               <Route path="/admin/audit-logs" element={<AdminAuditLogsPage />} />
+
+              {/* SAP pages — accessible to admin */}
+              <Route path="/admin/launchpad" element={<LaunchpadPage />} />
+              <Route path="/admin/erp-dashboard" element={<ERPDashboardPage />} />
             </Route>
 
             {/* ───── Shared routes (all authenticated users) ───── */}
@@ -213,6 +211,12 @@ const App: React.FC = () => {
                 </ProtectedRoute>
               }
             >
+              {/* SAP Fiori Launchpad — all roles */}
+              <Route path="/launchpad" element={<LaunchpadPage />} />
+
+              {/* SAP ERP Integration Dashboard — all roles */}
+              <Route path="/erp-dashboard" element={<ERPDashboardPage />} />
+
               {/* Unauthorized page */}
               <Route path="/unauthorized" element={<UnauthorizedPage />} />
               

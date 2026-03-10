@@ -104,6 +104,8 @@ export const Header: React.FC = () => {
                 { to: '/admin/reports', label: 'Reports' },
                 { to: '/admin/users', label: 'Users' },
                 { to: '/admin/audit-logs', label: 'Audit Logs' },
+                { to: '/erp-dashboard', label: '📊 SAP ERP', color: '#107e3e' },
+                { to: '/launchpad', label: '🚀 Launchpad', color: '#0070f2' },
               ].map(({ to, label, color }) => (
                 <NavLink
                   key={to}

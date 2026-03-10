@@ -46,6 +46,8 @@ const QUICK_ACTIONS = [
   { to: '/admin/reports',     icon: '📊', title: 'Security Reports',   desc: 'Export audit logs & compliance reports',            accent: 'var(--shadow-primary)' },
   { to: '/admin/users',       icon: '👥', title: 'User Management',    desc: 'Manage roles & permissions',                       accent: 'var(--zebra-primary)' },
   { to: '/admin/audit-logs',  icon: '📋', title: 'Audit Logs',         desc: 'HIPAA-compliant audit trail',                      accent: 'var(--watching-text)' },
+  { to: '/erp-dashboard',     icon: '📈', title: 'SAP Integration',    desc: 'FICO · MM · GRC · SAC live status',                accent: '#107e3e' },
+  { to: '/launchpad',         icon: '🚀', title: 'SAP Launchpad',      desc: 'SAP Fiori tile-based navigation',                  accent: '#0070f2' },
 ];
 
 export const AdminHomePage: React.FC = () => {
@@ -98,7 +100,7 @@ export const AdminHomePage: React.FC = () => {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {QUICK_ACTIONS.map((a) => (
           <Link
             key={a.to}

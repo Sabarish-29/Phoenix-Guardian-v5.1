@@ -19,7 +19,12 @@ from sqlalchemy.orm import Session
 
 from phoenix_guardian.api.auth.utils import (
     AuthenticationError,
+    DEV_AUTH_ACTIVE,
+    DEV_USERS,
+    _DEV_USER_BY_EMAIL,
     authenticate_user,
+    create_access_token,
+    create_refresh_token,
     create_tokens_for_user,
     decode_token,
     get_current_active_user,
@@ -186,6 +191,41 @@ async def login(
     **Errors:**
     - `401 Unauthorized`: Invalid credentials
     """
+    # ── DEV AUTH BYPASS ─────────────────────────────────────────
+    # When SAP_DEMO_MODE or PHOENIX_DEV_MODE is true, check the
+    # in-memory DEV_USERS dict before querying the DB.
+    if DEV_AUTH_ACTIVE and _DEV_USER_BY_EMAIL:
+        dev_user = _DEV_USER_BY_EMAIL.get(login_data.email)
+        if dev_user is not None:
+            dev_info = DEV_USERS[login_data.email]
+            if login_data.password == dev_info["password"]:
+                token_data = {
+                    "sub": str(dev_user.id),
+                    "email": dev_user.email,
+                    "role": dev_user.role.value,
+                }
+                access_token = create_access_token(data=token_data)
+                refresh_token = create_refresh_token(data={"sub": str(dev_user.id)})
+                user_resp = UserResponse(
+                    id=dev_user.id,
+                    email=dev_user.email,
+                    first_name=dev_user.first_name,
+                    last_name=dev_user.last_name,
+                    role=dev_user.role.value,
+                    npi_number=dev_user.npi_number,
+                    license_number=dev_user.license_number,
+                    license_state=dev_user.license_state,
+                    is_active=dev_user.is_active,
+                    created_at=None,
+                )
+                return LoginResponse(
+                    access_token=access_token,
+                    refresh_token=refresh_token,
+                    token_type="bearer",
+                    user=user_resp,
+                )
+    # ── END DEV AUTH BYPASS ─────────────────────────────────────
+
     # Authenticate user
     user = authenticate_user(
         email=login_data.email,

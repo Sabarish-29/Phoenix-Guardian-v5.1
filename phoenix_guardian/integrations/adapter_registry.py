@@ -353,7 +353,7 @@ class AthenaHealthAdapter(BaseIntegrationAdapter):
 
     def get_info(self) -> AdapterInfo:
         return AdapterInfo(
-            adapter_id="athenahealth_rest",
+            adapter_id="athenahealth",
             display_name="athenahealth — REST API",
             protocol=IntegrationProtocol.REST,
             system_type="athenahealth",

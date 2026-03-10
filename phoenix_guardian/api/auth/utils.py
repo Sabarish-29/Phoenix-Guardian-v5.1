@@ -38,7 +38,13 @@ REFRESH_TOKEN_EXPIRE_DAYS = 7  # 7 days
 # DEV MODE - allows login without database (set PHOENIX_DEV_MODE=true)
 DEV_MODE = os.getenv("PHOENIX_DEV_MODE", "false").lower() == "true"
 
-# Dev mode users (only used when PHOENIX_DEV_MODE=true)
+# SAP demo mode — reuse this to gate dev auth bypass (no DB needed)
+_SAP_DEMO_MODE = os.getenv("SAP_DEMO_MODE", os.getenv("DEMO_MODE", "false")).lower() == "true"
+
+# Dev auth active when either flag is set
+DEV_AUTH_ACTIVE = DEV_MODE or _SAP_DEMO_MODE
+
+# Dev mode users (only used when DEV_AUTH_ACTIVE=true)
 DEV_USERS = {
     "admin@phoenix.local": {
         "id": 1,
@@ -67,7 +73,86 @@ DEV_USERS = {
         "role": "nurse",
         "is_active": True,
     },
+    # Frontend login page uses @phoenixguardian.health emails
+    "admin@phoenixguardian.health": {
+        "id": 1,
+        "password": "Admin123!",
+        "first_name": "System",
+        "last_name": "Admin",
+        "role": "admin",
+        "is_active": True,
+    },
+    "dr.smith@phoenixguardian.health": {
+        "id": 2,
+        "password": "Doctor123!",
+        "first_name": "John",
+        "last_name": "Smith",
+        "role": "physician",
+        "npi_number": "1234567890",
+        "license_number": "MD12345",
+        "license_state": "CA",
+        "is_active": True,
+    },
+    "nurse.jones@phoenixguardian.health": {
+        "id": 3,
+        "password": "Nurse123!",
+        "first_name": "Sarah",
+        "last_name": "Jones",
+        "role": "nurse",
+        "is_active": True,
+    },
 }
+
+
+class _DevUser:
+    """Lightweight stand-in for the User SQLAlchemy model during dev/demo mode.
+
+    Provides the same attributes and methods that SAP route handlers and
+    auth dependencies access on a real ``User`` object, so that endpoints
+    work identically with or without a database connection.
+    """
+
+    def __init__(self, dev_dict: dict, email: str):
+        self.id = dev_dict["id"]
+        self.email = email
+        self.first_name = dev_dict.get("first_name", "Dev")
+        self.last_name = dev_dict.get("last_name", "User")
+        self.role = UserRole(dev_dict["role"])
+        self.is_active = dev_dict.get("is_active", True)
+        self.is_deleted = False
+        self.npi_number = dev_dict.get("npi_number")
+        self.license_number = dev_dict.get("license_number")
+        self.license_state = dev_dict.get("license_state")
+        self.hospital_id = None
+        self.created_at = None
+        self.password_hash = "dev-no-hash"
+
+    @property
+    def full_name(self) -> str:
+        return f"{self.first_name} {self.last_name}"
+
+    def has_permission(self, required_role: "UserRole") -> bool:
+        from phoenix_guardian.models.user import ROLE_HIERARCHY
+        return ROLE_HIERARCHY[self.role] >= ROLE_HIERARCHY[required_role]
+
+    def can_sign_notes(self) -> bool:
+        return self.role in [UserRole.ADMIN, UserRole.PHYSICIAN]
+
+    def can_edit_notes(self) -> bool:
+        return self.role in [UserRole.ADMIN, UserRole.PHYSICIAN, UserRole.NURSE, UserRole.SCRIBE]
+
+    def __repr__(self) -> str:
+        return f"<DevUser(id={self.id}, email='{self.email}', role='{self.role.value}')>"
+
+
+# Pre-build _DevUser objects keyed by email AND by int(id) for fast lookup
+_DEV_USER_BY_EMAIL: dict = {}
+_DEV_USER_BY_ID: dict = {}
+if DEV_AUTH_ACTIVE:
+    for _email, _info in DEV_USERS.items():
+        _du = _DevUser(_info, _email)
+        _DEV_USER_BY_EMAIL[_email] = _du
+        _DEV_USER_BY_ID[_info["id"]] = _du
 
 # Password hashing context (bcrypt)
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -295,40 +380,50 @@ def get_current_user(
     """
     if credentials is None:
         raise AuthenticationError(detail="Missing authentication token")
-    
+
     token = credentials.credentials
-    
+
     # Decode and validate token
     payload = decode_token(token)
-    
+
     # Extract user ID (sub is stored as string per JWT standard)
     sub = payload.get("sub")
     if sub is None:
         raise AuthenticationError(detail="Token missing user ID")
-    
+
     try:
         user_id = int(sub)
     except (ValueError, TypeError):
         raise AuthenticationError(detail="Invalid user ID in token")
-    
+
     # Verify token type is access (not refresh)
     token_type = payload.get("type")
     if token_type != "access":
         raise AuthenticationError(detail="Invalid token type - use access token")
-    
+
+    # ── DEV AUTH BYPASS ─────────────────────────────────────────
+    # When SAP_DEMO_MODE or PHOENIX_DEV_MODE is true, look up the
+    # user in the in-memory DEV_USERS dict before querying the DB.
+    # This allows API testing without PostgreSQL.
+    if DEV_AUTH_ACTIVE and _DEV_USER_BY_ID:
+        dev_user = _DEV_USER_BY_ID.get(user_id)
+        if dev_user is not None:
+            return dev_user
+    # ── END DEV AUTH BYPASS ─────────────────────────────────────
+
     # Retrieve user from database
     user = db.query(User).filter(User.id == user_id).first()
     if user is None:
         raise AuthenticationError(detail="User not found")
-    
+
     # Check if user is active
     if not user.is_active:
         raise AuthenticationError(detail="User account is disabled")
-    
+
     # Check if user is deleted
     if user.is_deleted:
         raise AuthenticationError(detail="User account has been deleted")
-    
+
     return user
 
 

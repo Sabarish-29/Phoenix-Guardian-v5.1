@@ -184,6 +184,21 @@ const TILE_CONFIG = [
   },
   // ── SAP ANALYTICS (SAC) GROUP ────────────────────────────────────
   {
+    id: 'erp-dashboard',
+    group: 'SAP Analytics (SAC)',
+    groupOrder: 5,
+    headerText: 'ERP Dashboard',
+    subheaderText: 'SAP FICO · MM · GRC · SAC',
+    value: '4',
+    unit: 'modules live',
+    valueColor: 'Good',
+    icon: 'table-chart',
+    route: '/erp-dashboard',
+    roles: ['physician', 'admin', 'readonly'],
+    sapModule: 'SAP S/4HANA Integration Layer',
+    agentBridge: 'All Agents → SAP S/4HANA',
+  },
+  {
     id: 'analytics',
     group: 'SAP Analytics (SAC)',
     groupOrder: 5,
